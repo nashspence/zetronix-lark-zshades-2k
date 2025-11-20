@@ -1,0 +1,41 @@
+services:
+  copy_to_stage:
+    image: instrumentisto/rsync-ssh:latest
+    command: >
+      sh -lc "rsync -a --partial --info=progress2 --exclude '/.*' --exclude '**/.*' --remove-source-files /in/ /out/ && find /in -depth -type d -empty -delete"
+    volumes:
+      - ${SOURCE_DIR}:/in:ro
+      - ${RUN_DIR}/copy_to_stage:/out
+
+  crunch_media:
+    image: ghcr.io/nashspence/vcrunch:next
+    command: >
+      --verbose --svt-lp 6
+    volumes:
+      - ${RUN_DIR}/copy_to_stage:/in
+      - ${RUN_DIR}/crunch_media:/out
+
+  make_iso:
+    image: ghcr.io/nashspence/mkiso:next
+    command: >
+      --out-file ${ISO_NAME}
+    volumes:
+      - ${RUN_DIR}/crunch_media:/in
+      - ${RUN_DIR}/make_iso:/out
+
+  cut_quick:
+    image: ghcr.io/nashspence/qcut:next
+    command: >
+      --tp -24 --svt-lp 6
+    volumes:
+      - ${RUN_DIR}/copy_to_stage:/in
+      - ${RUN_DIR}/cut_quick:/out
+
+  sync_to_share:
+    image: rclone/rclone:latest
+    environment:
+      - RCLONE_DEST=${RCLONE_DEST}
+    command: >
+      copy /data ${RCLONE_DEST} --exclude /.* --exclude **/.*
+    volumes:
+      - ${RUN_DIR}/cut_quick:/data
