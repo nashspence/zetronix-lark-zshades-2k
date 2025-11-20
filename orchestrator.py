@@ -47,7 +47,7 @@ iso_name = f"{now}.iso"
 iso_path = iso_dir / iso_name
 
 run_stage(
-    marks["copy_to_stage"], "copy_to_stage", 
+    marks["copy_to_stage"], "copy_to_stage",
     lambda: dr(
         "-v", f"{source_dir}:/in:ro",
         "-v", f"{stage_dir}:/out",
