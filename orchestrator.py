@@ -4,27 +4,13 @@ from pathlib import Path
 from datetime import datetime
 from tinyorch.core import dr, make_notifier, run_stage, run_parallel, rclone_sync
 
-JOB_CONTEXT = os.getenv("JOB_CONTEXT", "zetronix-lark-zshades-2k-nash")
+JOB_CONTEXT = os.getenv("JOB_CONTEXT", "zetronix-lark-zshades-2k")
 ARCHIVE_ROOT = Path(os.getenv("ARCHIVE_ROOT", str(Path.home() / "archive")))
-RETRIES = int(os.getenv("RETRIES", "3"))
 
-if len(sys.argv) < 2:
-    print("usage: orchestrator.py <device_mount_point>", file=sys.stderr)
-    sys.exit(1)
+source_dir = Path(sys.argv[1]) / "DCIM" / "Movie"
 
-notify = make_notifier(JOB_CONTEXT)
-mount_point = Path(sys.argv[1])
-source_dir = mount_point / "DCIM" / "Movie"
-
-default_now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-now = os.getenv("NOW", "")
-if not now and sys.stdin.isatty():
-    try:
-        x = input(f"Press Enter to archive {JOB_CONTEXT}, or enter a name to resume: ").strip()
-        if x: now = x
-    except EOFError:
-        pass
-if not now: now = default_now
+input(f"Press Enter to archive {JOB_CONTEXT}: ")
+now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
 
 run_dir = ARCHIVE_ROOT / JOB_CONTEXT / now
 stage_dir, crunch_dir, iso_dir, cut_dir = (
@@ -57,7 +43,7 @@ run_stage(
         "--remove-source-files /in/ /out/ && "
         "find /in -depth -type d -empty -delete"
     ),
-    notify, RETRIES, "Files imported; you can disconnect the device."
+    "Files imported; you can disconnect the device."
 )
 
 run_stage(
@@ -67,8 +53,7 @@ run_stage(
         "-v", f"{crunch_dir}:/out",
         "ghcr.io/nashspence/vcrunch:next",
         "--verbose", "--svt-lp", "6"
-    ),
-    notify, RETRIES
+    )
 )
 
 run_parallel([
@@ -79,8 +64,7 @@ run_parallel([
             "-v", f"{iso_dir}:/out",
             "ghcr.io/nashspence/mkiso:next",
             "--out-file", iso_name
-        ),
-        notify, RETRIES
+        )
     ) if not marks["make_iso"].exists() else None,
     lambda: run_stage(
         marks["cut_quick"], "cut_quick",
@@ -89,15 +73,14 @@ run_parallel([
             "-v", f"{cut_dir}:/out",
             "ghcr.io/nashspence/mkiso:qcut",
             "--tp", "-24", "--svt-lp", "6"
-        ),
-        notify, RETRIES
+        )
     ) if not marks["cut_quick"].exists() else None,
 ])
 
 run_stage(
     marks["sync_to_share"], "sync_to_share",
-    lambda: rclone_sync(cut_dir, notify=notify),
-    notify, RETRIES, "New cut available on the server."
+    lambda: rclone_sync(cut_dir),
+    "New cut available on the server."
 )
 
 print(str(iso_path))
