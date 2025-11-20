@@ -5,7 +5,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir apprise \
-    git+https://github.com/<you>/tinyorch.git
+    git+https://github.com/nashspence/tinyorch.git
 
 WORKDIR /app
 COPY orchestrator.py /app/orchestrator.py
