@@ -4,8 +4,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends docker.io && \
     rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir apprise \
-    git+https://github.com/nashspence/tinyorch.git
+RUN pip install git+https://github.com/nashspence/tinyorch.git
 
 WORKDIR /app
 COPY orchestrator.py /app/orchestrator.py
