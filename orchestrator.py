@@ -57,7 +57,7 @@ run_parallel([
         lambda: dr(
             "-v", f"{stage_dir}:/in",
             "-v", f"{cut_dir}:/out",
-            "ghcr.io/nashspence/mkiso:qcut",
+            "ghcr.io/nashspence/qcut:next",
             "--tp", "-24", "--svt-lp", "6"
         )
     ),
