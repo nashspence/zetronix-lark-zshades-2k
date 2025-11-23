@@ -4,7 +4,7 @@ services:
     command: >
       sh -lc "rsync -a --partial --info=progress2 --exclude '/.*' --exclude '**/.*' --remove-source-files /in/ /out/ && find /in -depth -type d -empty -delete"
     volumes:
-      - ${SOURCE_DIR}:/in:ro
+      - ${SOURCE_DIR}:/in
       - ${RUN_DIR}/copy_to_stage:/out
 
   crunch_media:
