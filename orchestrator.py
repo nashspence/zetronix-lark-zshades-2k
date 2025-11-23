@@ -5,13 +5,10 @@ from pathlib import Path
 from datetime import datetime
 from tinyorch.core import run, run_parallel
 
-
 JOB_CONTEXT = os.getenv("JOB_CONTEXT", "zetronix-lark-zshades-2k")
-ARCHIVE_ROOT = Path(os.getenv("ARCHIVE_ROOT", str(Path.home() / "archive")))
+ARCHIVE_ROOT = Path(os.getenv("ARCHIVE_ROOT", "~/archive"))
+source_dir = Path(os.getenv("SOURCE_ROOT")) / "DCIM" / "Movie"
 
-source_dir = Path(sys.argv[1]) / "DCIM" / "Movie"
-
-input(f"Press Enter to archive {JOB_CONTEXT}: ")
 now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
 
 run_dir = ARCHIVE_ROOT / JOB_CONTEXT / now
