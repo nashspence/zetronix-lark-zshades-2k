@@ -16,9 +16,6 @@ now = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
 
 run_dir = ARCHIVE_ROOT / JOB_CONTEXT / now
 
-for name in ("copy_to_stage", "crunch_media", "make_iso", "cut_quick"):
-    (run_dir / name).mkdir(parents=True, exist_ok=True)
-
 os.environ["JOB_CONTEXT"] = JOB_CONTEXT
 os.environ["RUN_DIR"] = str(run_dir)
 os.environ["SOURCE_DIR"] = str(source_dir)
