@@ -7,6 +7,6 @@ RUN apt-get update && \
 RUN pip install git+https://github.com/nashspence/tinyorch.git
 
 WORKDIR /app
-COPY orchestrator.py /app/orchestrator.py
+COPY orchestrator.py docker-compose.yml /app/
 ENV PYTHONUNBUFFERED=1
 ENTRYPOINT ["python", "/app/orchestrator.py"]
