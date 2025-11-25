@@ -34,8 +34,8 @@ services:
   sync_to_share:
     image: rclone/rclone:latest
     environment:
-      - RCLONE_DEST=${RCLONE_DEST}
+      - RCLONE_DEST=${UPLOAD}
     command: >
-      copy /data ${RCLONE_DEST} --exclude /.* --exclude **/.*
+      copy /data ${UPLOAD} --exclude /.* --exclude **/.*
     volumes:
       - ${RUN_DIR}/cut_quick:/data
