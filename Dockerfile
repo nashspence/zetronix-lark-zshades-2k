@@ -22,7 +22,6 @@ RUN apt-get update && \
         docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
-# Your Python install
 RUN pip install --no-cache-dir git+https://github.com/nashspence/tinyorch.git
 
 WORKDIR /app

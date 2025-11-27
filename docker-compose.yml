@@ -1,17 +1,31 @@
 services:
   copy_to_stage:
-    image: instrumentisto/rsync-ssh:latest
+    image: rclone/rclone:latest
+    entrypoint: ["/bin/sh"]
+    stdin_open: true
+    tty: true
     environment:
       - TZ=${TZ}
-    command: >
-      sh -lc "rsync -a --partial --info=progress2 --exclude '/.*' --exclude '**/.*' --remove-source-files /in/ /out/ &&
-              find /in -mindepth 1 -type d -empty -delete"
+      - SOURCE=${SOURCE}
+    command:
+      - -lc
+      - |
+        umask 077
+        printf '%s\n' "$SOURCE" > /tmp/rclone.conf
+        rclone --config /tmp/rclone.conf \
+               move remote:/in /out \
+               --exclude "/.*" \
+               --exclude "**/.*" \
+               --delete-empty-src-dirs \
+               --progress
     volumes:
       - ${SOURCE_DIR}:/in
       - ${RUN_DIR}/copy_to_stage:/out
 
   crunch_media:
     image: ghcr.io/nashspence/vcrunch:next
+    stdin_open: true
+    tty: true
     environment:
       - TZ=${TZ}
     command: >
@@ -22,16 +36,20 @@ services:
 
   make_iso:
     image: ghcr.io/nashspence/mkiso:next
+    stdin_open: true
+    tty: true
     environment:
       - TZ=${TZ}
     command: >
       --out-file ${ISO_NAME}
     volumes:
       - ${RUN_DIR}/crunch_media:/in
-      - ${RUN_DIR}/make_iso:/out
+      - ${ISO_DIR}:/out
 
   cut_quick:
     image: ghcr.io/nashspence/qcut:next
+    stdin_open: true
+    tty: true
     environment:
       - TZ=${TZ}
     command: >
@@ -42,10 +60,24 @@ services:
 
   sync_to_share:
     image: rclone/rclone:latest
+    stdin_open: true
+    tty: true
+    entrypoint: ["/bin/sh"]
     environment:
       - TZ=${TZ}
-      - RCLONE_DEST=${UPLOAD}
-    command: >
-      copy /data ${UPLOAD} --exclude /.* --exclude **/.*
+      - UPLOAD=${UPLOAD}
+    command:
+      - -lc
+      - |
+        umask 077
+        printf '%s\n' "$UPLOAD" > /tmp/rclone.conf
+        rclone --config /tmp/rclone.conf \
+               copy /data remote: \
+               --exclude "/.*" \
+               --exclude "**/.*" \
+               --progress
     volumes:
       - ${RUN_DIR}/cut_quick:/data
+
+
+

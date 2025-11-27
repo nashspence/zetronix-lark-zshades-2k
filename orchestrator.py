@@ -2,7 +2,6 @@
 import os
 import sys
 from pathlib import Path
-from datetime import UTC, datetime
 from tinyorch.core import run, run_parallel
 
 JOB = os.environ["JOB"]
@@ -13,31 +12,27 @@ if not TARGET:
     print("TARGET is required", file=sys.stderr)
     sys.exit(1)
 
-ARCHIVE_ROOT = Path(os.environ["OUT"]).expanduser()
-
-if MODE == "start":
-    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-elif MODE == "resume":
-    timestamp = TARGET
-else:
-    print(f"Unsupported MODE: {MODE}", file=sys.stderr)
-    sys.exit(1)
-
-run_dir = ARCHIVE_ROOT / JOB / timestamp
+run_dir = Path(os.environ["RUN_DIR"]).expanduser()
 run_dir.mkdir(parents=True, exist_ok=True)
 
-os.environ["JOB_CONTEXT"] = JOB
 os.environ["RUN_DIR"] = str(run_dir)
 
 if MODE == "start":
     source_dir = Path(TARGET) / "DCIM" / "Movie"
-else:
+elif MODE == "resume":
     source_dir = run_dir / "copy_to_stage"
+else:
+    print(f"Unsupported MODE: {MODE}", file=sys.stderr)
+    sys.exit(1)
 
 os.environ["SOURCE_DIR"] = str(source_dir)
 
-iso_name = f"{timestamp}.iso"
-iso_path = run_dir / "make_iso" / iso_name
+iso_path = Path(os.environ["ISO_PATH"])
+iso_dir = iso_path.parent
+iso_name = iso_path.name
+
+os.environ["ISO_PATH"] = str(iso_path)
+os.environ["ISO_DIR"] = str(iso_dir)
 os.environ["ISO_NAME"] = iso_name
 
 if MODE == "start":
@@ -58,4 +53,4 @@ run(
     success_msg="New cut available on the server.",
 )
 
-print(str(iso_path))
+sys.exit(0)
