@@ -4,7 +4,6 @@ import time
 from pathlib import Path
 
 from tinyorch.core import (
-    ensure_docker_host,
     run,
     run_parallel,
     keep_awake,
@@ -52,7 +51,6 @@ else:
 prompt_enter(f"Press ENTER to {mode} {job} ({target})... ")
 os.environ["RUN_DIR"] = str(run_dir)
 keep_awake()
-ensure_docker_host()
 
 
 def copy_to_stage():
@@ -60,11 +58,11 @@ def copy_to_stage():
     script = 'umask 077; printf "%s\n" "$SOURCE" > /tmp/rclone.conf; rclone --config /tmp/rclone.conf move remote:/in /out --exclude "/.*" --exclude "**/.*" --delete-empty-src-dirs --progress'
     docker(
         "rclone/rclone:latest",
-        "/bin/sh",
         "-lc",
         script,
         env={"TZ": tz, "SOURCE": source_env},
         volumes=[(source_dir, "/in"), (out_dir, "/out")],
+        entrypoint="/bin/sh",
     )
 
 
@@ -111,11 +109,11 @@ def sync_to_share():
     script = 'umask 077; printf "%s\n" "$UPLOAD" > /tmp/rclone.conf; rclone --config /tmp/rclone.conf copy /data remote: --exclude "/.*" --exclude "**/.*" --progress'
     docker(
         "rclone/rclone:latest",
-        "/bin/sh",
         "-lc",
         script,
         env={"TZ": tz, "UPLOAD": upload_env},
         volumes=[(data_dir, "/data")],
+        entrypoint="/bin/sh",
     )
 
 
