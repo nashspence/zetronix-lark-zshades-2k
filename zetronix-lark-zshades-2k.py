@@ -1,19 +1,11 @@
 import os
+import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
-from tinyorch.core import (
-    run,
-    run_parallel,
-    keep_awake,
-    prompt_enter,
-    burn_iso,
-    docker,
-    ensure_dir,
-    wait_for_files,
-    spawn,
-)
+from tinyorch.core import burn_iso, prompt_enter, run
 
 args = sys.argv[1:]
 if not args:
@@ -38,8 +30,10 @@ upload_env = os.environ["UPLOAD"]
 
 ts = target if mode == "resume" else time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
 
-run_dir = ensure_dir(archive_root / job, ts)
-iso_dir = ensure_dir(run_dir, "make_iso")
+run_dir = archive_root / job / ts
+run_dir.mkdir(parents=True, exist_ok=True)
+iso_dir = run_dir / "make_iso"
+iso_dir.mkdir(parents=True, exist_ok=True)
 iso_path = iso_dir / f"{ts}.iso"
 
 if mode == "start":
@@ -50,76 +44,133 @@ else:
 
 prompt_enter(f"Press ENTER to {mode} {job} ({target})... ")
 os.environ["RUN_DIR"] = str(run_dir)
-keep_awake()
 
 
 def copy_to_stage():
-    out_dir = ensure_dir(run_dir, "copy_to_stage")
-    script = 'umask 077; printf "%s\n" "$SOURCE" > /tmp/rclone.conf; rclone --config /tmp/rclone.conf move remote:/in /out --exclude "/.*" --exclude "**/.*" --delete-empty-src-dirs --progress'
-    docker(
-        "rclone/rclone:latest",
-        "-lc",
-        script,
-        env={"TZ": tz, "SOURCE": source_env},
-        volumes=[(source_dir, "/in"), (out_dir, "/out")],
-        entrypoint="/bin/sh",
+    out_dir = run_dir / "copy_to_stage"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    script = 'umask 077; printf "%s\\n" "$SOURCE" > /tmp/rclone.conf; rclone --config /tmp/rclone.conf move remote:/in /out --exclude "/.*" --exclude "**/.*" --delete-empty-src-dirs --progress'
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-e",
+            f"TZ={tz}",
+            "-e",
+            f"SOURCE={source_env}",
+            "-v",
+            f"{source_dir}:/in",
+            "-v",
+            f"{out_dir}:/out",
+            "--entrypoint",
+            "/bin/sh",
+            "rclone/rclone:latest",
+            "-lc",
+            script,
+        ],
+        check=True,
     )
 
 
 def crunch_media():
     in_dir = run_dir / "copy_to_stage"
-    out_dir = ensure_dir(run_dir, "crunch_media")
-    docker(
-        "ghcr.io/nashspence/vcrunch:next",
-        "--verbose",
-        "--svt-lp",
-        "6",
-        env={"TZ": tz},
-        volumes=[(in_dir, "/in"), (out_dir, "/out")],
+    out_dir = run_dir / "crunch_media"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-e",
+            f"TZ={tz}",
+            "-v",
+            f"{in_dir}:/in",
+            "-v",
+            f"{out_dir}:/out",
+            "ghcr.io/nashspence/vcrunch:next",
+            "--verbose",
+            "--svt-lp",
+            "6",
+        ],
+        check=True,
     )
 
 
 def make_iso():
     in_dir = run_dir / "crunch_media"
-    docker(
-        "ghcr.io/nashspence/mkiso:next",
-        "--out-file",
-        iso_path.name,
-        env={"TZ": tz},
-        volumes=[(in_dir, "/in"), (iso_dir, "/out")],
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-e",
+            f"TZ={tz}",
+            "-v",
+            f"{in_dir}:/in",
+            "-v",
+            f"{iso_dir}:/out",
+            "ghcr.io/nashspence/mkiso:next",
+            "--out-file",
+            iso_path.name,
+        ],
+        check=True,
     )
 
 
 def cut_quick():
     in_dir = run_dir / "copy_to_stage"
-    out_dir = ensure_dir(run_dir, "cut_quick")
-    docker(
-        "ghcr.io/nashspence/qcut:next",
-        "--tp",
-        "-24",
-        "--svt-lp",
-        "6",
-        env={"TZ": tz},
-        volumes=[(in_dir, "/in"), (out_dir, "/out")],
+    out_dir = run_dir / "cut_quick"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-e",
+            f"TZ={tz}",
+            "-v",
+            f"{in_dir}:/in",
+            "-v",
+            f"{out_dir}:/out",
+            "ghcr.io/nashspence/qcut:next",
+            "--tp",
+            "-24",
+            "--svt-lp",
+            "6",
+        ],
+        check=True,
     )
 
 
 def sync_to_share():
     data_dir = run_dir / "cut_quick"
-    script = 'umask 077; printf "%s\n" "$UPLOAD" > /tmp/rclone.conf; rclone --config /tmp/rclone.conf copy /data remote: --exclude "/.*" --exclude "**/.*" --progress'
-    docker(
-        "rclone/rclone:latest",
-        "-lc",
-        script,
-        env={"TZ": tz, "UPLOAD": upload_env},
-        volumes=[(data_dir, "/data")],
-        entrypoint="/bin/sh",
+    script = 'umask 077; printf "%s\\n" "$UPLOAD" > /tmp/rclone.conf; rclone --config /tmp/rclone.conf copy /data remote: --exclude "/.*" --exclude "**/.*" --progress'
+    subprocess.run(
+        [
+            "docker",
+            "run",
+            "--rm",
+            "-e",
+            f"TZ={tz}",
+            "-e",
+            f"UPLOAD={upload_env}",
+            "-v",
+            f"{data_dir}:/data",
+            "--entrypoint",
+            "/bin/sh",
+            "rclone/rclone:latest",
+            "-lc",
+            script,
+        ],
+        check=True,
     )
 
 
 def wait_and_burn():
     mark = run_dir / ".make_iso.done"
-    wait_for_files([mark, iso_path])
+    while not mark.exists() or not iso_path.exists():
+        time.sleep(5)
     run(
         "burn_iso",
         lambda: burn_iso(str(iso_path)),
@@ -128,19 +179,22 @@ def wait_and_burn():
     )
 
 
-burn_thread = spawn(wait_and_burn)
+burn_thread = threading.Thread(target=wait_and_burn, daemon=True)
+burn_thread.start()
 
 if mode == "start":
     run("copy_to_stage", copy_to_stage, success_msg="Files imported; you can disconnect the device.")
 
 run("crunch_media", crunch_media)
 
-run_parallel(
-    [
-        lambda: run("make_iso", make_iso),
-        lambda: run("cut_quick", cut_quick),
-    ]
-)
+threads = [
+    threading.Thread(target=lambda: run("make_iso", make_iso)),
+    threading.Thread(target=lambda: run("cut_quick", cut_quick)),
+]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
 
 run("sync_to_share", sync_to_share, success_msg="New cut available on the server.")
 
