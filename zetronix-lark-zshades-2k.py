@@ -5,22 +5,25 @@ import threading
 import time
 from pathlib import Path
 
-from tinyorch.core import burn_iso, prompt_enter, run
+from tinyorch.core import burn_iso, run
 
-args = sys.argv[1:]
-if not args:
-    print("usage: zetronix-lark-zshades-2k.py TARGET | zetronix-lark-zshades-2k.py -r TIMESTAMP", file=sys.stderr)
-    sys.exit(1)
+# required env (base)
+required = ["JOB", "ARCHIVE_ROOT", "TZ", "SOURCE", "UPLOAD", "RUN_MODE", "RUN_TS"]
+missing = [k for k in required if not os.environ.get(k)]
+if missing:
+    print("missing required env: " + ", ".join(missing), file=sys.stderr)
+    sys.exit(2)
 
-if args[0] == "-r":
-    if len(args) < 2:
-        print("resume mode requires TIMESTAMP", file=sys.stderr)
-        sys.exit(1)
-    mode = "resume"
-    target = args[1]
-else:
-    mode = "start"
-    target = args[0]
+mode = os.environ["RUN_MODE"]
+ts = os.environ["RUN_TS"]
+
+if mode not in ("start", "resume"):
+    print(f"invalid RUN_MODE: {mode!r} (expected 'start' or 'resume')", file=sys.stderr)
+    sys.exit(2)
+
+if mode == "start" and not os.environ.get("RUN_TARGET"):
+    print("missing required env: RUN_TARGET (required when RUN_MODE=start)", file=sys.stderr)
+    sys.exit(2)
 
 job = os.environ["JOB"]
 archive_root = Path(os.environ["ARCHIVE_ROOT"]).expanduser()
@@ -28,21 +31,19 @@ tz = os.environ["TZ"]
 source_env = os.environ["SOURCE"]
 upload_env = os.environ["UPLOAD"]
 
-ts = target if mode == "resume" else time.strftime("%Y%m%dT%H%M%SZ", time.gmtime())
-
 run_dir = archive_root / job / ts
 run_dir.mkdir(parents=True, exist_ok=True)
+
 iso_dir = run_dir / "make_iso"
 iso_dir.mkdir(parents=True, exist_ok=True)
+
 iso_path = iso_dir / f"{ts}.iso"
 
 if mode == "start":
-    source_dir = Path(target) / "DCIM" / "Movie"
+    source_dir = Path(os.environ["RUN_TARGET"]) / "DCIM" / "Movie"
 else:
     source_dir = run_dir / "copy_to_stage"
 
-
-prompt_enter(f"Press ENTER to {mode} {job} ({target})... ")
 os.environ["RUN_DIR"] = str(run_dir)
 
 
