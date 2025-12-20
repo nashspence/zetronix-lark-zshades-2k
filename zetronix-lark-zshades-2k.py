@@ -4,10 +4,8 @@ import sys
 import threading
 import time
 from pathlib import Path
-
 from tinyorch.core import burn_iso, run
 
-# required env (base)
 required = ["JOB", "ARCHIVE_ROOT", "TZ", "SOURCE", "UPLOAD", "RUN_MODE", "RUN_TS"]
 missing = [k for k in required if not os.environ.get(k)]
 if missing:
